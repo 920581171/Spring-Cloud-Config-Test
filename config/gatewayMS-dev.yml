@@ -1,0 +1,117 @@
+server:
+  port: 8888
+  tomcat.uri-encoding: utf-8
+  servlet:
+    session:
+      timeout: 1440m
+
+spring:
+  application:
+    name: Gateway
+  cloud:
+    consul:
+      host: 202.135.136.205
+      port: 8500
+      discovery:
+        serviceName: gatewayMS
+        #        register: true
+        tags: version=1.0,author=java
+        health-check-path: /actuator/health
+        health-check-interval: 10s
+        prefer-ip-address: true
+
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          #全局
+      default-filters:
+        #熔断
+        - name: Hystrix
+          args:
+            name: internalError
+            fallbackUri: 'forward:/internalErrorFallback'
+
+      #路由
+      routes:
+        - id: goodms
+          uri: lb://goodMS
+          predicates:
+            - Path=/goodms/**
+          filters:
+            - StripPrefix=1
+            #令牌桶算法，根据url限流，最大值burstCapacity，每秒填充速度replenishRate
+            - name: CustomRateLimiter
+              args:
+                key-resolver: "#{@urlKeyResolver}"
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 25
+
+        #企业服务
+        - id: company
+          uri: lb://COMPANYSERVICE
+          predicates:
+            - Path=/company/**
+          filters:
+            - StripPrefix=1
+            - name: CustomRateLimiter
+              args:
+                key-resolver: "#{@urlKeyResolver}"
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 25
+
+        #经销商渠道服务
+        - id: dealerchannel
+          uri: lb://DEALERCHANNELSERVICE
+          predicates:
+            - Path=/dealerchannel/**
+          filters:
+            - StripPrefix=1
+            - name: CustomRateLimiter
+              args:
+                key-resolver: "#{@urlKeyResolver}"
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 25
+
+        #订单服务
+        - id: order
+          uri: lb://ORDERSERVICE
+          predicates:
+            - Path=/order/**
+          filters:
+            - StripPrefix=1
+            - name: CustomRateLimiter
+              args:
+                key-resolver: "#{@urlKeyResolver}"
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 25
+
+        #供货商渠道服务
+        - id: supplierchannel
+          uri: lb://SUPPLIERCHANNELSERVICE
+          predicates:
+            - Path=/supplierchannel/**
+          filters:
+            - StripPrefix=1
+            - name: CustomRateLimiter
+              args:
+                key-resolver: "#{@urlKeyResolver}"
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 25
+
+  redis:
+    host: 202.135.136.143
+    port: 6379
+    password: redis123456
+    database: 0
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 100MB
+
+logging:
+  level:
+    root: info
+  path: /main/apps/goods/logs/
+  file: /main/apps/goods/logs/goods.log
